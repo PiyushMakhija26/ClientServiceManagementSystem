@@ -68,6 +68,21 @@ const requestSchema = new mongoose.Schema({
     },
     message: String,
   }],
+  rating: {
+    score: {
+      type: String,
+      enum: ['excellent', 'good', 'poor', null],
+      default: null,
+    },
+    feedback: String,
+    ratedAt: Date,
+    ratedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+  },
+  reopenReason: String,
+  reopenedAt: Date,
 });
 
 module.exports = mongoose.model('Request', requestSchema);

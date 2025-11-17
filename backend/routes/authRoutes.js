@@ -1,7 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -163,6 +165,135 @@ router.post('/admin/login', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
+  }
+});
+
+// User Forgot Password
+router.post('/user/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set reset token and expiration (10 minutes)
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    // In production, send email with reset link
+    // For now, return the token (in real app, send via email)
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}&email=${email}`;
+
+    res.json({
+      message: 'Password reset link sent to your email',
+      resetLink, // Remove in production, only for dev
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error processing forgot password', error: error.message });
+  }
+});
+
+// User Reset Password
+router.post('/user/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body;
+
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ message: 'Email, token, and new password are required' });
+    }
+
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: resetTokenHash,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error resetting password', error: error.message });
+  }
+});
+
+// Admin Forgot Password
+router.post('/admin/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set reset token and expiration (10 minutes)
+    admin.resetPasswordToken = resetTokenHash;
+    admin.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    await admin.save();
+
+    // In production, send email with reset link
+    const resetLink = `http://localhost:3000/admin/reset-password?token=${resetToken}&email=${email}`;
+
+    res.json({
+      message: 'Password reset link sent to your email',
+      resetLink, // Remove in production, only for dev
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error processing forgot password', error: error.message });
+  }
+});
+
+// Admin Reset Password
+router.post('/admin/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body;
+
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ message: 'Email, token, and new password are required' });
+    }
+
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const admin = await Admin.findOne({
+      email,
+      resetPasswordToken: resetTokenHash,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!admin) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Update password
+    admin.password = newPassword;
+    admin.resetPasswordToken = null;
+    admin.resetPasswordExpire = null;
+    await admin.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error resetting password', error: error.message });
   }
 });
 

@@ -147,11 +147,23 @@ router.put('/:id/status', adminAuthMiddleware, async (req, res) => {
   try {
     const { status, message, clarificationMessage } = req.body;
 
+    // Validate status
+    const validStatuses = ['raised', 'in-progress', 'completed', 'closed', 'clarification-needed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') });
+    }
+
     const request = await Request.findById(req.params.id);
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
 
+    // Check if admin is allowed to update (must be from same department or allocated admin)
+    if (request.department !== req.department && request.allocatedTo?.toString() !== req.adminId) {
+      return res.status(403).json({ message: 'Not authorized to update this request' });
+    }
+
+    const oldStatus = request.status;
     request.status = status;
     if (clarificationMessage) {
       request.clarificationNeeded = clarificationMessage;
@@ -159,14 +171,20 @@ router.put('/:id/status', adminAuthMiddleware, async (req, res) => {
 
     request.statusUpdates.push({
       status,
-      message: message || `Status updated to ${status}`,
+      message: message || `Status updated from ${oldStatus} to ${status}`,
       updatedBy: req.adminId,
     });
 
     request.updatedAt = Date.now();
     await request.save();
+    await request.populate('allocatedTo', 'name');
 
-    res.json({ message: 'Request status updated successfully', request });
+    res.json({ 
+      message: 'Request status updated successfully', 
+      request,
+      oldStatus,
+      newStatus: status,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error updating request status', error: error.message });
   }
@@ -228,6 +246,103 @@ router.get('/help/recent', authMiddleware, async (req, res) => {
     res.json(requests);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching recent requests', error: error.message });
+  }
+});
+
+// Rate completed work (User)
+router.put('/:id/rate', authMiddleware, async (req, res) => {
+  try {
+    const { score, feedback } = req.body;
+
+    // Validate score
+    const validScores = ['excellent', 'good', 'poor'];
+    if (!validScores.includes(score)) {
+      return res.status(400).json({ message: 'Invalid rating. Must be: excellent, good, or poor' });
+    }
+
+    const request = await Request.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Check if user owns the request
+    if (request.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    // Only allow rating completed or closed requests
+    if (!['completed', 'closed'].includes(request.status)) {
+      return res.status(400).json({ message: 'Can only rate completed or closed requests' });
+    }
+
+    request.rating = {
+      score,
+      feedback: feedback || '',
+      ratedAt: Date.now(),
+      ratedBy: req.userId,
+    };
+
+    await request.save();
+    await request.populate('allocatedTo', 'name');
+
+    res.json({ 
+      message: 'Request rated successfully', 
+      request,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error rating request', error: error.message });
+  }
+});
+
+// Reopen request due to unsatisfactory work (User)
+router.put('/:id/reopen', authMiddleware, async (req, res) => {
+  try {
+    const { reopenReason } = req.body;
+
+    if (!reopenReason) {
+      return res.status(400).json({ message: 'Please provide reason for reopening' });
+    }
+
+    const request = await Request.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Check if user owns the request
+    if (request.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    // Only allow reopening completed or closed requests
+    if (!['completed', 'closed'].includes(request.status)) {
+      return res.status(400).json({ message: 'Can only reopen completed or closed requests' });
+    }
+
+    request.status = 'in-progress';
+    request.reopenReason = reopenReason;
+    request.reopenedAt = Date.now();
+    request.rating = {
+      score: null,
+      feedback: '',
+      ratedAt: null,
+      ratedBy: null,
+    };
+
+    request.statusUpdates.push({
+      status: 'in-progress',
+      message: `Request reopened by user. Reason: ${reopenReason}`,
+      updatedBy: req.userId,
+    });
+
+    await request.save();
+    await request.populate('allocatedTo', 'name');
+
+    res.json({ 
+      message: 'Request reopened successfully', 
+      request,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error reopening request', error: error.message });
   }
 });
 
