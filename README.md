@@ -1,3 +1,68 @@
+# Client Service Management System
+
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+This repository contains a full-stack Client Service Management System (backend API + legacy React frontend). It supports local development with Node.js and Docker, and has a GitHub Actions CI workflow to exercise install/test/build steps for both backend and frontend.
+
+Quick links
+- Repository: https://github.com/PiyushMakhija26/ClientServiceManagementSystem
+- License: MIT
+
+Contents
+- `backend/` — Node.js / Express API and models
+- `frontend/` — Legacy React (CRA) application
+- `docker-compose.yml` — Compose file to run full stack (MongoDB, backend, frontend)
+- `scripts/` — helpers to start services locally (PowerShell / bash)
+
+Prerequisites
+- Node.js 16+ (recommended 18+)
+- npm (bundled with Node)
+- Docker / Docker Desktop (optional but recommended for reproducible runs)
+
+Quick start — Backend (PowerShell)
+```
+cd backend
+npm install
+copy ..\.env.example .env
+# (edit .env as needed)
+npm start
+```
+
+Quick start — Frontend (PowerShell)
+```
+cd frontend
+npm install
+npm start
+```
+
+One-command local (recommended)
+PowerShell:
+```
+.\scripts\start-all.ps1
+```
+macOS / Linux:
+```
+./scripts/start-all.sh
+```
+
+Docker (compose)
+```
+docker compose up --build -d
+docker compose ps
+docker compose down -v
+```
+
+CI
+This repository includes a GitHub Actions workflow at `.github/workflows/nodejs-ci.yml` which runs on `push` and `pull_request`. It runs a matrix across Node.js versions, installs dependencies for backend and frontend, runs `npm run test --if-present`, and runs `npm run build --if-present`.
+
+Contributing
+- Create issues for bugs or feature requests
+- Fork, create a feature branch, and open a PR
+
+License
+This project is licensed under the MIT License — see the included `LICENSE` file.
+
+Updated: November 17, 2025
 # Citizen Request Management System
 
 This repository contains the backend (Node/Express) and the legacy frontend (React CRA) for the Citizen Request Management System. The modern Next.js frontend (`frontend_modern`) was removed by request; this README documents running the legacy frontend + backend and Docker-based local deployment.
