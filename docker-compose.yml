@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: citizen-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: citizen-requests
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: citizen-backend
+    ports:
+      - "5000:5000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/citizen-requests
+      NODE_ENV: ${NODE_ENV:-development}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      PORT: 5000
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app:cached
+      - /app/node_modules
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: citizen-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:5000
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app:cached
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  citizen-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local
+

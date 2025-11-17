@@ -1,0 +1,26 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f7fa;
+  color: #333;
+}
+
+button {
+  font-family: inherit;
+}
+
+small {
+  display: block;
+  margin-top: 5px;
+  color: #999;
+  font-size: 0.85em;
+}
+
+#root {
+  min-height: 100vh;
+}
